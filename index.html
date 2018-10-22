@@ -1,0 +1,289 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>Puck n' Gritty</title>
+    <script src="//cdn.jsdelivr.net/npm/phaser@3.11.0/dist/phaser.js"></script>
+    <style type="text/css">
+        body {
+            margin: 0;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: none;
+        }
+    </style>
+</head>
+<body>
+
+<script type="text/javascript">
+
+    const config = {
+        type: Phaser.AUTO,
+        width: 1280,
+        height: 720,
+        backgroundColor: '#000',
+        physics: {
+            default: 'arcade',
+            arcade: {
+                gravity: {
+                    x: 0,
+                    y: 0
+                },
+                debug: false
+            }
+        },
+        scene: {
+            preload: preload,
+            create: create,
+            update: update
+        }
+    }
+
+    var game = new Phaser.Game(config);
+
+    function preload ()
+    {
+        this.load.image('bg', 'assets/ice.jpg');
+        this.load.image('ground', 'assets/platform.png');
+        this.load.image('star', 'assets/hot_dog.png');
+        this.load.image('ball', 'assets/puck.png');
+        this.load.image('paddle', 'assets/player.png');
+        this.load.image('bomb', 'assets/bomb.png');
+        this.load.image('explosion', 'assets/explosion.png');
+        this.load.spritesheet('gritty', 'assets/grittySprite.png', { frameWidth: 200, frameHeight: 215 });
+
+        this.load.audio('music', 'assets/bounce-song.mp3');
+        this.load.audio('bounce', 'assets/bounce.wav');
+        this.load.audio('pickup', 'assets/pickup.wav');
+        this.load.audio('hit', 'assets/hit.wav');
+        this.load.audio('bomb', 'assets/jingle.wav');
+    }
+
+    // Variables
+    let score = 0;
+    let scoreText;
+    let wave = 1;
+    let waveText;
+    let platforms;
+    let stars;
+    let paddle;
+    let ball;
+    let bombs;
+    let deadZone;
+    let gameOver = false;
+    let minVelocity;
+    let zone;
+    let explosions;
+    let emitter0;
+
+function create ()
+{
+    // Just in case...
+    this.cameras.main.resetFX();
+
+    // Music & Sounds
+    music = this.sound.add('music');
+    music.loop = true;
+    music.play();
+
+    bounce = this.sound.add('bounce');
+    pickup = this.sound.add('pickup');
+    hit = this.sound.add('hit');
+    bomb = this.sound.add('bomb');
+
+    zone = this.add.zone(0, 710).setSize(1280, 20);
+    this.physics.world.enable(zone);
+    zone.body.setAllowGravity(false);
+    zone.body.moves = false;
+
+    this.add.image(640, 360, 'bg');
+
+    // Platform Group
+    platforms = this.physics.add.group();
+
+    platformTop = platforms.create(320, 100, 'ground');
+    platformMiddle = platforms.create(640, 310, 'ground');
+    platformBottom = platforms.create(920, 540, 'ground');
+
+    platformChildren = platforms.getChildren();
+    for(i=0; i < platformChildren.length; i++) {
+      platformChildren[i].setVelocityX(Phaser.Math.Between(-175, -125));
+      platformChildren[i].body.allowGravity = false;
+      platformChildren[i].body.immovable = true;
+    }
+
+    // Bombs
+    bombs = this.physics.add.group();
+    this.anims.create({ key: 'everything', frames: this.anims.generateFrameNames('gritty'), repeat: -1 });
+    // Gritty bomb loop
+    timedEvent = this.time.addEvent({ delay: 10000, callback: moveBomb, callbackScope: this, loop: true });
+
+    // Stars pickups
+    stars = this.physics.add.group();
+    buildStars();
+
+    // Player paddle variables
+    paddle = this.physics.add.sprite(200, 680, 'paddle').setScale(0.2);
+    paddle.setCollideWorldBounds(true);
+    paddle.setFrictionX(0);
+    paddle.body.allowGravity = false;
+    paddle.body.immovable = true;
+
+
+    // The ball
+    ball = this.physics.add.sprite(640, 0, 'ball');
+    ball.body.setGravityY(200);
+    ball.setBounce(1);
+    ball.setCircle(22);
+    ball.setCollideWorldBounds(true);
+    ball.setVelocityX(50);
+    ball.setOrigin(.73, .73);
+
+
+    // Collisions & Overlaps
+    this.physics.add.collider(paddle, ball, playerHit, null, this);
+    this.physics.add.collider(ball, platforms);
+    this.physics.add.collider(ball, stars, collectStar, null, this);
+    this.physics.add.collider(ball, bombs, hitBomb, null, this);
+    this.physics.add.overlap(ball, zone, hitBomb, null, this);
+
+    // World and controls
+    cursors = this.input.keyboard.createCursorKeys();
+
+    // Score and Waves
+    scoreText = this.add.text(16, 16, 'Score: 0', { fontSize: '16px', fill: '#000' });
+    waveText = this.add.text(1200, 16, 'Wave: 1', { fontSize: '16px', fill: '#000' });
+
+    // Particles
+    emitter0 = this.add.particles('explosion').createEmitter({
+        x: -400,
+        y: -300,
+        speed: { min: -800, max: 800 },
+        angle: { min: 0, max: 360 },
+        scale: { start: 0.3, end: 0 },
+        active: true,
+        lifespan: 600,
+        gravityY: 800
+    });
+}
+
+function update ()
+{
+
+    // Player Movement
+    if (cursors.left.isDown)
+    {
+      paddle.setVelocityX(-750);
+    }
+    else if (cursors.right.isDown)
+    {
+      paddle.setVelocityX(750);
+    }
+    else {
+      paddle.setVelocityX(0);
+    }
+
+    // Move platforms
+    platformDirection();
+
+    // Player died
+    if(gameOver === false) {
+        return;
+    }
+}
+
+// Game Logic
+
+
+function moveBomb() {
+    var grittyBomb = bombs.getChildren();
+    grittyBomb[0].x = Phaser.Math.Between(100, 1000);
+    grittyBomb[0].y = Phaser.Math.Between(200, 600);
+    bomb.play();
+}
+
+function playerHit(paddle, ball) {
+    ball.setVelocityY(-600);
+    bounce.play();
+}
+
+function hitBomb (ball, bomb)
+{
+    this.cameras.main.flash(50);
+    this.cameras.main.shake(300);
+    this.physics.pause();
+    hit.play();
+    music.stop();
+    gameOver = true;
+
+    //fade camera
+    this.time.delayedCall(1000, function() {
+    this.cameras.main.fade(1000);
+  }, [], this);
+
+    // Go back to menu
+    this.time.delayedCall(3000, function() {
+     document.location.href="/index.html?id=puck-n-gritty&score=" + score;
+    }, [], this);
+}
+
+function buildStars() {
+    for (var i = 0; i < 11; i++) {
+      var x = Phaser.Math.Between(100, 1000);
+      var y = Phaser.Math.Between(100, 400);
+      var star = stars.create(x, y, 'star');
+      star.body.allowGravity = false;
+      star.body.immovable = true;
+    }
+    // Now for Gritty
+    bombs.create(-100, -100,'gritty').setScale(.35).play('everything');
+}
+
+function collectStar (ball, star)
+{
+    let pX = ball.x;
+    let pY = ball.y;
+    emitter0.setPosition(pX, pY);
+    emitter0.explode();
+    emitter0.explode();
+    emitter0.explode();
+    pickup.play();
+
+    //  Add and update the score
+    score += 100;
+    scoreText.setText('Score: ' + score);
+
+    star.destroy();
+
+    if (stars.countActive(true) === 0)
+    {
+        //  A new batch of stars to collect
+        this.cameras.main.flash(100);
+        buildStars();
+        wave = wave + 1;
+        waveText.setText('Wave: ' + wave);
+
+    }
+}
+
+// Move platforms and bombs back and forth
+let platformDirection = () => {
+    platformChildren.map((platform) => {
+        if(platform.x < -400 || platform.x > 1600) {
+            platform.setVelocityX(platform.body.velocity.x*-1);
+        }
+    })
+};
+
+// Leave game if it's just too much to handle...
+document.onkeydown = function (e) { if (e.key === 'l' || e.key === 'e') {
+  document.location.href="/index.html?id=puck-n-gritty";
+  } }
+
+</script>
+
+</body>
+</html>

@@ -1,0 +1,113 @@
+<!doctype html> 
+<html lang="en"> 
+<head> 
+    <meta charset="UTF-8" />
+    <title>Making your first Phaser 3 Game - Part 3</title>
+    <script src="//cdn.jsdelivr.net/npm/phaser@3.11.0/dist/phaser.js"></script>
+    <style type="text/css">
+        body {
+            margin: 0;
+        }
+    </style>
+</head>
+<body>
+
+<script type="text/javascript">
+
+    const config = {
+        type: Phaser.AUTO,
+        width: 800,
+        height: 600,
+        backgroundColor: '#1b1464',
+        physics: {
+            default: 'matter',
+            matter: {
+                gravity: { 
+                    x: 0, 
+                    y: 0.5 
+                },
+                debug: true
+            }
+        },
+        scene: {
+            preload: preload,
+            create: create,
+            update: update
+        }
+    }
+
+    var game = new Phaser.Game(config);
+
+    function preload ()
+    {
+        this.load.image('ground', 'assets/platform.png');
+        // this.load.image('star', 'assets/star.png');
+        this.load.image('ball', 'assets/bomb.png');
+        this.load.image('paddle', 'assets/player.png');
+    }
+
+function create ()
+{
+    // Player paddle variables
+    paddle = this.matter.add.image(100, 600, 'paddle')
+        .setScale(.2)
+        .setIgnoreGravity(true);
+    paddle.setFixedRotation();
+    paddle.setAngle(0);
+    paddle.setFrictionAir(0.01);
+    paddle.setMass(30);
+
+    // The ball
+    ball = this.matter.add.image(250, 150, 'ball').setScale(2);
+    ball.setCircle();
+    ball.setFriction(3);
+    ball.setMass(3);
+    ball.setBounce(1.2);
+    //ball.setVelocityX(-0.5);
+    //ball.setVelocityY(-2);
+    ball.setAngularVelocity(0);
+
+    // Bottom platform (invisible)
+
+    ground = this.matter.add.image(0, 600, 'ground').setScale(4,1).setStatic(true);
+
+    platform = this.matter.add.image(700,300, 'ground', null, { restitution: 0.4, isStatic: true }).setScale(1,.5).setIgnoreGravity(true);
+
+    // Collisions
+    // var cat1 = this.matter.world.nextCategory();
+    // var cat2 = this.matter.world.nextCategory();
+    // paddle.setCollisionCategory(cat1);
+    // ball.setCollisionCategory(cat1);
+    // ball.setCollidesWith(cat1);
+
+    //ball.setCollidesWith(paddle);
+    this.matter.world.on('collisionstart', function (event, bodyA, bodyB) {
+        if(bodyB.label === 'Circle Body') {
+            bodyB.gameObject.setTint(0xff0000).setVelocityY(-13).setVelocityX(2);
+        }
+    });
+
+
+    // World and controls
+    this.matter.world.setBounds(0, 0, 800, 600);
+    cursors = this.input.keyboard.createCursorKeys();
+}
+
+function update ()
+{
+    if (cursors.left.isDown)
+    {
+        paddle.thrustBack(0.1);
+    }
+    else if (cursors.right.isDown)
+    {
+        paddle.thrust(0.1);
+    }
+
+    platform.setVelocity(-10, 0);
+}
+
+</script>
+
+</body>
+</html>
