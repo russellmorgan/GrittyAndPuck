@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8" />
     <title>Puck n' Gritty</title>
-    <script src="//cdn.jsdelivr.net/npm/phaser@3.11.0/dist/phaser.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/phaser/3.15.1/phaser.js"></script>
     <style type="text/css">
         body {
             margin: 0;
@@ -84,7 +84,7 @@ function create ()
     // Just in case...
     this.cameras.main.resetFX();
 
-    // Music & Sounds
+    //Music & Sounds
     music = this.sound.add('music');
     music.loop = true;
     music.play();
@@ -226,7 +226,7 @@ function hitBomb (ball, bomb)
 
     // Go back to menu
     this.time.delayedCall(3000, function() {
-     document.location.href="/index.html?id=puck-n-gritty&score=" + score;
+     document.location.href="index.html?id=puck-n-gritty&score=" + score;
     }, [], this);
 }
 
@@ -280,7 +280,7 @@ let platformDirection = () => {
 
 // Leave game if it's just too much to handle...
 document.onkeydown = function (e) { if (e.key === 'l' || e.key === 'e') {
-  document.location.href="/index.html?id=puck-n-gritty";
+  document.location.href="index.html";
   } }
 
 </script>
